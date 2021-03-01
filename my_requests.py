@@ -95,7 +95,5 @@ def a1s1():
             else:
                 pass
 
-def a2s1():
-    
 a1s1()
 
