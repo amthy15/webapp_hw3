@@ -74,7 +74,8 @@ def send_get_request(host: str, req: GetRequest):
     print("message sent successfully")
     out = recv_timeout(sock)
     return out
-
+### Step 1 ###
+"""
 def a1s1():
     request = GetRequest("www.rit.edu",
                          "/study/computing-security-bs")
@@ -96,4 +97,7 @@ def a1s1():
                 pass
 
 a1s1()
+"""
+
+### Step 2 ###
 
