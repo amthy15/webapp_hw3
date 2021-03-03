@@ -3,8 +3,8 @@ import ssl
 from dataclasses import dataclass
 import time
 from bs4 import BeautifulSoup
-import re
-import csv
+import logging
+import threading
 
 @dataclass
 class GetRequest:
@@ -33,8 +33,8 @@ def recv_timeout(the_socket,timeout=2):
     #make socket non blocking
     the_socket.setblocking(0)
     #total data partwise in an array
-    total_data=[];
-    data='';
+    total_data=b'';
+    data=b'';
     #beginning time
     begin=time.time()
     while 1:
@@ -57,7 +57,7 @@ def recv_timeout(the_socket,timeout=2):
         except:
             pass
     #join all parts to make final string
-    return ''.join(total_data)
+    return b''.join(total_data)
 
 
 """
@@ -74,30 +74,48 @@ def send_get_request(host: str, req: GetRequest):
     print("message sent successfully")
     out = recv_timeout(sock)
     return out
-### Step 1 ###
-"""
-def a1s1():
-    request = GetRequest("www.rit.edu",
-                         "/study/computing-security-bs")
-    out = send_get_request("www.rit.edu", request)
-    soup = BeautifulSoup(out, 'html.parser')
-    with open('classes.csv', mode='w') as class_file:
-        csv_writer = csv.writer(class_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        for i in soup.find("curriculum").find_all("tr", class_ = "hidden-row"):
-            course_num_raw = i.find("td")
-            course_num = course_num_raw.contents
-            course_num_str = str(course_num).replace("\\xa0", "")
-            regexp = re.compile(r'[A-Z][A-Z][A-Z][A-Z]-[0-9][0-9][0-9]')
-            if regexp.search(course_num_str):
-                course_name = i.find("div", class_ = "course-name").contents
-                course_name_str = str(course_name).replace("\\xa0", "")
-                csv_writer.writerow([course_num_str[2:len(course_num_str)-2],
-                                     course_name_str[2:len(course_name_str)-2]])
-            else:
-                pass
-
-a1s1()
-"""
 
 ### Step 2 ###
+def get_image_src():
+    sources = []
+    request = GetRequest("www.rit.edu",
+                         "/computing/directory?term_node_tid_depth=4919")
+    out = send_get_request("www.rit.edu", request)
+    soup = BeautifulSoup(out, 'html.parser')
+    for i in soup.find_all('img', class_ = "card-img-top"):
+        sources.append(str(i.get('data-src'))[21:])
 
+    return sources
+
+def download_image(endpoint: str, fname: str):
+    request = GetRequest("www.rit.edu", endpoint)
+    reply = send_get_request("www.rit.edu", request)
+    headers =  reply.split(b'\r\n\r\n')[0]
+    image = reply[len(headers)+4:]
+
+    # save image
+    f = open(fname, 'wb')
+    f.write(image)
+    f.close()
+
+def a1s2():
+    sources = get_image_src()
+    name_iterator = 0
+    format = "%(asctime)s: %(message)s"
+    logging.basicConfig(format=format, level=logging.INFO,
+                        datefmt="%H:%M:%S")
+    threads = list()
+    for i in sources:
+        name = "image{iter}.png".format(iter=name_iterator)
+        logging.info("Main    : create and start thread %d.", i)
+        x = threading.Thread(target=download_image, args=(i, name))
+        threads.append(x)
+        x.start()
+        name_iterator+=1
+
+    for i, thread in enumerate(threads):
+        logging.info("Main    : before joining thread %d.", i)
+        thread.join()
+        logging.info("Main    : thread %d done", i)
+
+a1s2()
